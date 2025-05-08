@@ -12,6 +12,7 @@ public partial class frmMain : Form
 
     private void BtnChonFile_Click(object sender, EventArgs e)
     {
+
         using (OpenFileDialog openFileDialog = new OpenFileDialog())
         {
             openFileDialog.Filter = "Image Files (*.jpg;*.tif)|*.jpg;*.tif";
@@ -146,59 +147,29 @@ public partial class frmMain : Form
                         MessageBox.Show($"Lỗi khi đọc file: {filePath}\nChi tiết: {ex.Message}", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     }
                 }
+                // Update the main form's DataGridView
+                dataGridView1.DataSource = fileInfoTable;
 
-                Form fileInfoForm = new Form
-                {
-                    Text = "Thông Tin Các File",
-                    Size = new Size(1000, 500),
-                    StartPosition = FormStartPosition.CenterScreen
-                };
-
-                // Panel chứa các nút
-                TableLayoutPanel buttonPanel = new TableLayoutPanel
-                {
-                    Dock = DockStyle.Bottom,
-                    Height = 40,
-                    Padding = new Padding(5),
-                    ColumnCount = 4
-                };
-
-                // Label hiển thị tổng diện tích
-                Label lblTotalArea = new Label
-                {
-                    Text = "Tổng diện tích: 0 m²",
-                    AutoSize = true,
-                    Anchor = AnchorStyles.Left | AnchorStyles.Right
-                };
-
-                Button btnCopyTotal = new Button
-                {
-                    Text = "Copy Tổng",
-                    AutoSize = true
-                };
-
-                Button btnCopyDetail = new Button
-                {
-                    Text = "Copy Chi Tiết",
-                    AutoSize = true
-                };
-
-                DataGridView dataGridView = new DataGridView
-                {
-                    DataSource = fileInfoTable,
-                    Dock = DockStyle.Fill,
-                    AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
-                    SelectionMode = DataGridViewSelectionMode.FullRowSelect,
-                    MultiSelect = true,
-                    AllowUserToAddRows = false
-                };
-
-                // Đặt giá trị mặc định cho cột Quantity
+                // Set default values for Quantity column
                 foreach (DataRow row in fileInfoTable.Rows)
                 {
                     row["Quantity"] = 1;
                     row["Total Area (m²)"] = Convert.ToDouble(row["Area (m²)"]);
                 }
+                // Wire up events (move the existing event handlers here)
+                dataGridView1.DataBindingComplete += (s, ev) =>
+                {
+                    if (dataGridView1.Columns["Area (m²)"] != null)
+                    {
+                        dataGridView1.Columns["Area (m²)"].DefaultCellStyle.Format = "N4";
+                    }
+                    if (dataGridView1.Columns["Total Area (m²)"] != null)
+                    {
+                        dataGridView1.Columns["Total Area (m²)"].DefaultCellStyle.Format = "N4";
+                        dataGridView1.Columns["Total Area (m²)"].ReadOnly = true;
+                    }
+                };
+                
 
                 //// Thiết lập các thuộc tính cho cột
                 //dataGridView.Columns["Quantity"].DefaultCellStyle.Format = "N0";
@@ -207,9 +178,9 @@ public partial class frmMain : Form
                 //dataGridView.Columns["Total Area (m²)"].ReadOnly = true;
                 //dataGridView.Columns["Quantity"].DefaultCellStyle.NullValue = 1;
                 //dataGridView.Columns["Quantity"].ValueType = typeof(int);
-                dataGridView.CellValidating += (sender, e) =>
+                dataGridView1.CellValidating += (sender, e) =>
                 {
-                    if (e.ColumnIndex == dataGridView.Columns["Quantity"].Index)
+                    if (e.ColumnIndex == dataGridView1.Columns["Quantity"].Index)
                     {
                         if (!int.TryParse(e.FormattedValue.ToString(), out int value) || value < 0)
                         {
@@ -218,13 +189,13 @@ public partial class frmMain : Form
                         }
                     }
                 };
-                dataGridView.CellValueChanged += (sender, e) =>
+                dataGridView1.CellValueChanged += (sender, e) =>
                 {
                     try
                     {
-                        if (e.ColumnIndex == dataGridView.Columns["Quantity"].Index && e.RowIndex >= 0)
+                        if (e.ColumnIndex == dataGridView1.Columns["Quantity"].Index && e.RowIndex >= 0)
                         {
-                            var row = dataGridView.Rows[e.RowIndex];
+                            var row = dataGridView1.Rows[e.RowIndex];
                             if (row?.Cells["Quantity"].Value == null || row?.Cells["Area (m²)"].Value == null)
                             {
                                 return;
@@ -241,7 +212,7 @@ public partial class frmMain : Form
                                 }
 
                                 row.Cells["Total Area (m²)"].Value = quantity * area;
-                                UpdateTotalArea(lblTotalArea, dataGridView);
+                                UpdateTotalArea(lblTotalArea, dataGridView1);
                             }
                             else
                             {
@@ -256,11 +227,11 @@ public partial class frmMain : Form
                     }
                 };
 
-                dataGridView.SelectionChanged += (sender, e) =>
+                dataGridView1.SelectionChanged += (sender, e) =>
                 {
                     try
                     {
-                        UpdateTotalArea(lblTotalArea, dataGridView);
+                        UpdateTotalArea(lblTotalArea, dataGridView1);
                     }
                     catch (Exception ex)
                     {
@@ -270,7 +241,7 @@ public partial class frmMain : Form
 
                 btnCopyTotal.Click += (sender, e) =>
                 {
-                    double total = CalculateSelectedTotal(dataGridView);
+                    double total = CalculateSelectedTotal(dataGridView1);
                     Clipboard.SetText($"Tổng diện tích: {total:N4} m²");
                 };
 
@@ -282,7 +253,7 @@ public partial class frmMain : Form
                     int totalQuantity = 0;
                     double totalArea = 0;
 
-                    foreach (DataGridViewRow row in dataGridView.SelectedRows)
+                    foreach (DataGridViewRow row in dataGridView1.SelectedRows)
                     {
                         string fileName = row.Cells["File Name"].Value.ToString();
                         double width = Convert.ToDouble(row.Cells["Width (mm)"].Value);
@@ -298,18 +269,6 @@ public partial class frmMain : Form
                     detail.AppendLine($"Tổng cộng: {totalQuantity} tấm, {totalArea:N4} m²");
                     Clipboard.SetText(detail.ToString());
                 };
-
-                // Thêm controls vào form
-                buttonPanel.Controls.Add(lblTotalArea, 0, 0);
-                buttonPanel.Controls.Add(btnCopyTotal, 1, 0);
-                buttonPanel.Controls.Add(btnCopyDetail, 2, 0);
-                fileInfoForm.Controls.Add(dataGridView);
-                fileInfoForm.Controls.Add(buttonPanel);
-
-                // Hiển thị form
-                fileInfoForm.ShowDialog();
-
-
             }
         }
     }
